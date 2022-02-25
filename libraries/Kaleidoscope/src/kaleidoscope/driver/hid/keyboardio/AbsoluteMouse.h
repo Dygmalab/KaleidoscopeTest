@@ -63,7 +63,7 @@ class AbsoluteMouseWrapper {
 };
 
 struct AbsoluteMouseProps: public base::AbsoluteMouseProps {
-  typedef AbsoluteMouse_ AbsoluteMouse;
+  typedef AbsoluteMouseWrapper AbsoluteMouse;
 };
 
 template <typename _Props>

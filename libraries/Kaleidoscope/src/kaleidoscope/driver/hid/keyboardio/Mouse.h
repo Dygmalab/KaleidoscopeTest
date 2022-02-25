@@ -79,7 +79,7 @@ class MouseWrapper {
 };
 
 struct MouseProps: public base::MouseProps {
-  typedef Mouse_ Mouse;
+  typedef MouseWrapper Mouse;
 };
 
 template <typename _Props>
