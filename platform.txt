@@ -104,9 +104,9 @@ archive_file_path={build.path}/{archive_file}
 recipe.ar.pattern="{compiler.path}{compiler.ar.cmd}" {compiler.ar.flags} {compiler.ar.extra_flags} "{archive_file_path}" "{object_file}"
 
 ################################################################################
-## PLEASE NOTE: The way we link our elf binary significantly differs from the 
-##              way that Arduino handles things by default. 
-##              The original linker command has been split up into three 
+## PLEASE NOTE: The way we link our elf binary significantly differs from the
+##              way that Arduino handles things by default.
+##              The original linker command has been split up into three
 ##              steps (recipe.c.combine.pattern, recipe.hooks.linking.postlink.1.pattern
 ##              and recipe.hooks.linking.postlink.2.pattern).
 ##              This is necessary to prevent link errors reporting unresolved symbols
@@ -117,7 +117,7 @@ recipe.ar.pattern="{compiler.path}{compiler.ar.cmd}" {compiler.ar.flags} {compil
 ##                    removed at the end of a previous build, because the build process
 ##                    terminated early after a failed attempt to link (e.g. because of missing symbols).
 ## recipe.hooks.linking.prelink.1.pattern={tools.rm_start.cmd} "{build.path}/{build.project_name}_joined.a" {tools.rm_end.cmd}
-##              
+##
 ## CHANGED WRT DEFAULT: Generate a large .a archive to prevent link order issues with garbage collection
 ## recipe.c.combine.pattern="{compiler.path}/{compiler.ar.cmd}" {compiler.c.elf.flags_join_archives} "{build.path}/{build.project_name}_joined.a" {object_files} "{build.path}/{archive_file}"
 ##
@@ -132,8 +132,11 @@ recipe.ar.pattern="{compiler.path}{compiler.ar.cmd}" {compiler.ar.flags} {compil
 ## recipe.hooks.linking.postlink.2.pattern={tools.rm_start.cmd} "{build.path}/{build.project_name}_joined.a" {tools.rm_end.cmd}
 ################################################################################
 
+recipe.hooks.linking.prelink.1.pattern={tools.rm_start.cmd} "{build.path}/{build.project_name}_joined.a" {tools.rm_end.cmd}
+recipe.c.combine.pattern="{compiler.path}/{compiler.ar.cmd}" {compiler.c.elf.flags_join_archives} "{build.path}/{build.project_name}_joined.a" {object_files} "{build.path}/{archive_file}"
+
 ## Combine gc-sections, archives, and objects
-recipe.c.combine.pattern="{compiler.path}{compiler.c.elf.cmd}"  "-L{build.path}" {compiler.c.elf.flags} {compiler.c.elf.extra_flags} "-T{build.variant.path}/{build.ldscript}" "-Wl,-Map,{build.path}/{build.project_name}.map" --specs=nano.specs --specs=nosys.specs {compiler.ldflags} -o "{build.path}/{build.project_name}.elf" {object_files} {compiler.libraries.ldflags} -Wl,--start-group {compiler.arm.cmsis.ldflags} -lm "{build.path}/{archive_file}" -Wl,--end-group
+recipe.hooks.linking.postlink.1.pattern="{compiler.path}{compiler.c.elf.cmd}"  "-L{build.path}" {compiler.c.elf.flags} {compiler.c.elf.extra_flags} "-T{build.variant.path}/{build.ldscript}" "-Wl,-Map,{build.path}/{build.project_name}.map" --specs=nano.specs --specs=nosys.specs {compiler.ldflags} -o "{build.path}/{build.project_name}.elf" {compiler.libraries.ldflags} -Wl,--start-group {compiler.arm.cmsis.ldflags} -lm "{build.path}/{build.project_name}_joined.a" -Wl,--end-group
 
 ## Create output (bin file)
 recipe.objcopy.bin.pattern="{compiler.path}{compiler.elf2hex.cmd}" {compiler.elf2hex.bin.flags} {compiler.elf2hex.extra_flags} "{build.path}/{build.project_name}.elf" "{build.path}/{build.project_name}.bin"
