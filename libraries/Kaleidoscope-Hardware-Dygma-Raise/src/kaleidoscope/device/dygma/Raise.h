@@ -26,12 +26,12 @@
   (cRGB) { b, g, r }
 
 #include "kaleidoscope/driver/mcu/SAMD.h"
+#include "kaleidoscope/driver/hid/Keyboardio.h"
 #include "kaleidoscope/driver/keyscanner/Base.h"
 #include "kaleidoscope/driver/storage/Flash.h"
 #include "kaleidoscope/device/dygma/raise/RaiseSide.h"
 #include "kaleidoscope/driver/led/Base.h"
 #include "kaleidoscope/device/Base.h"
-#include "kaleidoscope/driver/hid/Keyboardio.h"
 #include "kaleidoscope/driver/bootloader/samd/Bossac.h"
 #include "kaleidoscope/util/flasher/KeyboardioI2CBootloader.h"
 
@@ -135,11 +135,6 @@ namespace kaleidoscope
         static void scanMatrix();
         static void readMatrix();
         static void actOnMatrixScan();
-
-        static void maskKey(KeyAddr key_addr);
-        static void unMaskKey(KeyAddr key_addr);
-        static bool isKeyMasked(KeyAddr key_addr);
-        static void maskHeldKeys();
 
         static bool isKeyswitchPressed(KeyAddr key_addr);
         static uint8_t pressedKeyswitchCount();

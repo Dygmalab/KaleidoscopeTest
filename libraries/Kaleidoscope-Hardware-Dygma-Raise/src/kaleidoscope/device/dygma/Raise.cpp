@@ -342,8 +342,6 @@ namespace kaleidoscope
       raise::keydata_t RaiseKeyScanner::rightHandState;
       raise::keydata_t RaiseKeyScanner::previousLeftHandState;
       raise::keydata_t RaiseKeyScanner::previousRightHandState;
-      raise::keydata_t RaiseKeyScanner::leftHandMask;
-      raise::keydata_t RaiseKeyScanner::rightHandMask;
       bool RaiseKeyScanner::lastLeftOnline;
       bool RaiseKeyScanner::lastRightOnline;
 
@@ -432,68 +430,6 @@ namespace kaleidoscope
         actOnMatrixScan();
       }
 
-      void RaiseKeyScanner::maskKey(KeyAddr key_addr)
-      {
-        if (!key_addr.isValid())
-          return;
-
-        auto row = key_addr.row();
-        auto col = key_addr.col();
-
-        if (col >= RaiseKeyScannerProps::left_columns)
-        {
-          rightHandMask.rows[row] |=
-              1 << (RaiseKeyScannerProps::right_columns - (col - RaiseKeyScannerProps::left_columns));
-        }
-        else
-        {
-          leftHandMask.rows[row] |= 1 << (RaiseKeyScannerProps::right_columns - col);
-        }
-      }
-
-      void RaiseKeyScanner::unMaskKey(KeyAddr key_addr)
-      {
-        if (!key_addr.isValid())
-          return;
-
-        auto row = key_addr.row();
-        auto col = key_addr.col();
-
-        if (col >= RaiseKeyScannerProps::left_columns)
-        {
-          rightHandMask.rows[row] &=
-              ~(1 << (RaiseKeyScannerProps::right_columns - (col - RaiseKeyScannerProps::left_columns)));
-        }
-        else
-        {
-          leftHandMask.rows[row] &= ~(1 << (RaiseKeyScannerProps::right_columns - col));
-        }
-      }
-
-      bool RaiseKeyScanner::isKeyMasked(KeyAddr key_addr)
-      {
-        if (!key_addr.isValid())
-          return false;
-
-        auto row = key_addr.row();
-        auto col = key_addr.col();
-
-        if (col >= 8)
-        {
-          return rightHandMask.rows[row] & (1 << (7 - (col - 8)));
-        }
-        else
-        {
-          return leftHandMask.rows[row] & (1 << (7 - col));
-        }
-      }
-
-      void RaiseKeyScanner::maskHeldKeys()
-      {
-        memcpy(leftHandMask.rows, leftHandState.rows, sizeof(leftHandMask));
-        memcpy(rightHandMask.rows, rightHandState.rows, sizeof(rightHandMask));
-      }
-
       bool RaiseKeyScanner::isKeyswitchPressed(KeyAddr key_addr)
       {
         auto row = key_addr.row();
@@ -571,6 +507,7 @@ namespace kaleidoscope
         RaiseHands::setup();
         KeyScanner::setup();
         LEDDriver::setup();
+        kaleidoscope::device::Base<RaiseProps>::setup();
 
         // initialise Wire of scanner - have to do this here to avoid problem with
         // static object intialisation ordering
