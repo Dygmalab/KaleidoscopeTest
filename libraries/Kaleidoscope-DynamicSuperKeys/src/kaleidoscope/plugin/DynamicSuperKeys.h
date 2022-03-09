@@ -26,12 +26,6 @@
 
 #define SD(n) Key(kaleidoscope::ranges::DYNAMIC_SUPER_FIRST + n)
 
-#define tapDanceActionKeys(tap_count, tap_dance_action, ...) ({
-static const Key __k[] PROGMEM = {__VA_ARGS__};
-TapDance.actionKeys(tap_count, tap_dance_action,
-                    sizeof(__k) / sizeof(Key), &__k[0]);
-})
-
 namespace kaleidoscope
 {
   namespace plugin

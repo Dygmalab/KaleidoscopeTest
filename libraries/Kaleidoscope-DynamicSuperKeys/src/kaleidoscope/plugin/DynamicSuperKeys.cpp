@@ -65,55 +65,55 @@ namespace kaleidoscope
       uint8_t repeat_interval;
       uint8_t overlap_threshold;
 
-      Kaleidoscope.storage().get(storage_base_ + 0, wait_for);
+      Runtime.storage().get(storage_base_ + 0, wait_for);
       if (wait_for < 2000)
       {
         DynamicSuperKeys::wait_for_ = wait_for;
       }
       else
       {
-        Kaleidoscope.storage().update(storage_base_, DynamicSuperKeys::wait_for_);
+        Runtime.storage().update(storage_base_, DynamicSuperKeys::wait_for_);
       }
-      Kaleidoscope.storage().get(storage_base_ + 2, time_out);
+      Runtime.storage().get(storage_base_ + 2, time_out);
       if (time_out != 65535)
       {
         DynamicSuperKeys::time_out_ = time_out;
       }
       else
       {
-        Kaleidoscope.storage().update(storage_base_, DynamicSuperKeys::time_out_);
+        Runtime.storage().update(storage_base_, DynamicSuperKeys::time_out_);
       }
-      Kaleidoscope.storage().get(storage_base_ + 4, hold_start);
+      Runtime.storage().get(storage_base_ + 4, hold_start);
       if (hold_start != 65535)
       {
         DynamicSuperKeys::hold_start_ = hold_start;
       }
       else
       {
-        Kaleidoscope.storage().update(storage_base_, DynamicSuperKeys::hold_start_);
+        Runtime.storage().update(storage_base_, DynamicSuperKeys::hold_start_);
       }
-      Kaleidoscope.storage().get(storage_base_ + 6, repeat_interval);
+      Runtime.storage().get(storage_base_ + 6, repeat_interval);
       if (repeat_interval < 251)
       {
         DynamicSuperKeys::repeat_interval_ = repeat_interval;
       }
       else
       {
-        Kaleidoscope.storage().update(storage_base_, DynamicSuperKeys::repeat_interval_);
+        Runtime.storage().update(storage_base_, DynamicSuperKeys::repeat_interval_);
       }
-      Kaleidoscope.storage().get(storage_base_ + 7, overlap_threshold);
+      Runtime.storage().get(storage_base_ + 7, overlap_threshold);
       if (overlap_threshold < 251)
       {
         DynamicSuperKeys::overlap_threshold_ = overlap_threshold;
       }
       else
       {
-        Kaleidoscope.storage().update(storage_base_, DynamicSuperKeys::overlap_threshold_);
+        Runtime.storage().update(storage_base_, DynamicSuperKeys::overlap_threshold_);
       }
 
       while (pos < (storage_base_ + 8) + storage_size_)
       {
-        uint16_t raw_key = Kaleidoscope.storage().read(pos);
+        uint16_t raw_key = Runtime.storage().read(pos);
         pos += 2;
         Key key(raw_key);
 
@@ -295,7 +295,7 @@ namespace kaleidoscope
         return false;
 
       Key key;
-      Kaleidoscope.storage().get(storage_base_ + pos + 8, key);
+      Runtime.storage().get(storage_base_ + pos + 8, key);
 
       switch (super_key_action)
       {
@@ -309,7 +309,7 @@ namespace kaleidoscope
           {
             Key key2;
             uint16_t pos2 = map_[super_key_index - offset_];
-            Kaleidoscope.storage().get(storage_base_ + pos2 + 8, key2);
+            Runtime.storage().get(storage_base_ + pos2 + 8, key2);
             Runtime.handleKeyEvent(KeyEvent(key_addr, IS_PRESSED, key2));
             Runtime.handleKeyEvent(KeyEvent(key_addr, WAS_PRESSED, key2));
             Runtime.handleKeyEvent(KeyEvent(key_addr, IS_PRESSED, key2));
@@ -430,7 +430,7 @@ namespace kaleidoscope
           // if(tap_count == DynamicSuperKeys::Tap_Twice) {
           //   Key key2;
           //   uint16_t pos2 = map_[super_key_index - offset_];
-          //   Kaleidoscope.storage().get(storage_base_ + pos2 + 8, key2);
+          //   Runtime.storage().get(storage_base_ + pos2 + 8, key2);
           //   Runtime.handleKeyEvent(KeyEvent(key_addr, IS_PRESSED, key2));
           //   kaleidoscope::Runtime.hid().keyboard().sendReport();
           //   Runtime.handleKeyEvent(KeyEvent(key_addr, WAS_PRESSED, key2));
@@ -687,7 +687,7 @@ namespace kaleidoscope
           for (uint16_t i = 0; i < storage_size_; i += 2)
           {
             Key k;
-            Kaleidoscope.storage().get(storage_base_ + i + 8, k);
+            Runtime.storage().get(storage_base_ + i + 8, k);
             ::Focus.send(k);
           }
         }
@@ -700,10 +700,10 @@ namespace kaleidoscope
             Key k;
             ::Focus.read(k);
 
-            Kaleidoscope.storage().put(storage_base_ + pos + 8, k);
+            Runtime.storage().put(storage_base_ + pos + 8, k);
             pos += 2;
           }
-          Kaleidoscope.storage().commit();
+          Runtime.storage().commit();
           updateDynamicSuperKeysCache();
         }
       }
@@ -717,8 +717,8 @@ namespace kaleidoscope
         {
           uint16_t wait = 0;
           ::Focus.read(wait);
-          Kaleidoscope.storage().put(storage_base_ + 0, wait);
-          Kaleidoscope.storage().commit();
+          Runtime.storage().put(storage_base_ + 0, wait);
+          Runtime.storage().commit();
           updateDynamicSuperKeysCache();
         }
       }
@@ -732,8 +732,8 @@ namespace kaleidoscope
         {
           uint16_t time = 0;
           ::Focus.read(time);
-          Kaleidoscope.storage().put(storage_base_ + 2, time);
-          Kaleidoscope.storage().commit();
+          Runtime.storage().put(storage_base_ + 2, time);
+          Runtime.storage().commit();
           updateDynamicSuperKeysCache();
         }
       }
@@ -747,8 +747,8 @@ namespace kaleidoscope
         {
           uint16_t hold = 0;
           ::Focus.read(hold);
-          Kaleidoscope.storage().put(storage_base_ + 4, hold);
-          Kaleidoscope.storage().commit();
+          Runtime.storage().put(storage_base_ + 4, hold);
+          Runtime.storage().commit();
           updateDynamicSuperKeysCache();
         }
       }
@@ -762,8 +762,8 @@ namespace kaleidoscope
         {
           uint8_t repeat = 0;
           ::Focus.read(repeat);
-          Kaleidoscope.storage().put(storage_base_ + 6, repeat);
-          Kaleidoscope.storage().commit();
+          Runtime.storage().put(storage_base_ + 6, repeat);
+          Runtime.storage().commit();
           updateDynamicSuperKeysCache();
         }
       }
@@ -777,8 +777,8 @@ namespace kaleidoscope
         {
           uint8_t overlap = 0;
           ::Focus.read(overlap);
-          Kaleidoscope.storage().put(storage_base_ + 7, overlap);
-          Kaleidoscope.storage().commit();
+          Runtime.storage().put(storage_base_ + 7, overlap);
+          Runtime.storage().commit();
           updateDynamicSuperKeysCache();
         }
       }
