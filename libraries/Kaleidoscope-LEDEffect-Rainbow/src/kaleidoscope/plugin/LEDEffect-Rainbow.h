@@ -106,7 +106,7 @@ class LEDRainbowWaveEffect : public Plugin, public LEDModeInterface {
   };
 
   uint8_t rainbow_update_delay = 40; // delay between updates (ms)
-  byte rainbow_value = 250;
+  byte rainbow_value = 50;
 };
 }
 }

@@ -16,6 +16,8 @@ If any of this does not make sense to you, or you have trouble updating your .in
     - [Bidirectional communication for plugins](#bidirectional-communication-for-plugins)
     - [Consistent timing](#consistent-timing)
   + [Breaking changes](#breaking-changes)
+    - [Macros](#macros)
+    - [Removed `kaleidoscope-builder`](#removed-kaleidoscope-builder)
     - [OneShot meta keys](#oneshot-meta-keys)
     - [git checkouts aren't compatible with Arduino IDE (GUI)]([#repository-rearchitecture)
     - [Layer system switched to activation-order](#layer-system-switched-to-activation-order)
@@ -435,12 +437,353 @@ As a developer, one can continue using `millis()`, but migrating to `Kaleidoscop
 
 ## Breaking changes
 
-###
+### Macros
+
+This is a guide to upgrading existing Macros code to use the new version of
+Kaleidoscope and the Macros plugin.
+
+#### New `macroAction()` function
+
+There is a new version of the `macroAction()` function, which is the entry point
+for user-defined Macros code. The old version takes two integer parameters, with
+the following call signature:
+
+```c++
+const macro_t* macroAction(uint8_t macro_id, uint8_t key_state)
+```
+
+If your sketch has this function, with a `key_state` bitfield parameter, it
+might still work as expected, but depending on the specifics of the code that
+gets called from it, your macros might not work as expected. Either way, you
+should update that function to the new version, which takes a `KeyEvent`
+reference as its second parameter:
+
+```c++
+const macro_t* macroAction(uint8_t macro_id, KeyEvent &event)
+```
+
+For simple macros, it is a simple matter of replacing `key_state` in the body of
+the `macroAction()` code with `event.state`. This covers most cases where all
+that's done is a call to `Macros.type()`, or a `MACRO()` or `MACRODOWN()`
+sequence is returned.
+
+
+#### Using `MACRO()` and `MACRODOWN()`
+
+The preprocessor macro `MACRODOWN()` has been deprecated, because the event
+handler for Macros is no longer called every cycle, but only when a key is
+either pressed or released.  Instead of using `return MACRODOWN()`, you should
+test for a toggle-on event in `macroAction()` and use `MACRO()` instead.  If you
+previously had something like the following in your `macroAction()` function:
+
+```c++
+switch(macro_id) {
+case MY_MACRO:
+  return MACRODOWN(T(X), T(Y), T(Z));
+}
+```
+
+...you should replace that with:
+
+```c++
+switch(macro_id) {
+case MY_MACRO:
+  if (keyToggledOn(event.state))
+    return MACRO(T(X), T(Y), T(Z));
+}
+```
+
+...or, for a group of macros that should only fire on keypress:
+
+```c++
+if (keyToggledOn(event.state)) {
+  switch(macro_id) {
+  case MY_MACRO:
+    return MACRO(T(X), T(Y), T(Z));
+  case MY_OTHER_MACRO:
+    return MACRO(T(A), T(B), T(C));
+  }
+}
+```
+
+#### Releasing keys with `Macros.release()` or `U()`/`Ur()`/`Uc()`
+
+Macros now operates by manipulating keys on a small supplemental virtual
+keyboard when using `Macros.press()` and `Macros.release()` (which are called by
+`D()` and `U()`, _et al_, respectively).  This means that it has no built-in
+facility for releasing other keys that are held on the keyboard.  For example,
+if you had a Macro that removed `shift` keycodes from the HID report in the
+past, it won't work.  For example:
+
+```c++
+  case KEY_COMMA:
+    if (keyToggledOn(event.state)) {
+      if (Kaleidoscope.hid().keyboard().wasModifierKeyActive(Key_LeftShift)) {
+        return MACRO(U(LeftShift), T(Comma), D(LeftShift));
+      } else {
+        return MACRO(T(M));
+      }
+    }
+```
+
+In this case, holding a physical `Key_LeftShift` and pressing `M(KEY_COMMA)`
+will not cause the held `shift` to be released, and you'll get a `<` instead of
+the intended `,` (depending on the OS keymap).  To accomplish this, you'll need
+a small plugin like the following in your sketch:
+
+```c++
+namespace kaleidoscope {
+namespace plugin {
+
+// When activated, this plugin will suppress any `shift` key (including modifier
+// combos with `shift` a flag) before it's added to the HID report.
+class ShiftBlocker : public Plugin {
+
+ public:
+  EventHandlerResult onAddToReport(Key key) {
+    if (active_ && key.isKeyboardShift())
+      return EventHandlerResult::ABORT;
+    return EventHandlerResult::OK;
+  }
+
+  void enable() {
+    active_ = true;
+  }
+  void disable() {
+    active_ = false;
+  }
+
+ private:
+  bool active_{false};
+
+};
+
+} // namespace plugin
+} // namespace kaleidoscope
+
+kaleidoscope::plugin::ShiftBlocker ShiftBlocker;
+```
+
+You may also need to define a function to test for held `shift` keys:
+
+```c++
+bool isShiftKeyHeld() {
+  for (Key key : kaleidoscope::live_keys.all()) {
+    if (key.isKeyboardShift())
+      return true;
+  }
+  return false;
+}
+```
+
+Then, in your `macroAction()` function:
+
+```c++
+  if (keyToggledOn(event.state)) {
+    switch (macro_id) {
+    case MY_MACRO:
+      if (isShiftKeyHeld()) {
+        ShiftBlocker.enable();
+        Macros.tap(Key_Comma);
+        ShiftBlocker.disable();
+      } else {
+        Macros.tap(Key_M);
+      }
+      return MACRO_NONE;
+    }
+  }
+```
+
+In many simple cases, such as the above example, an even better solution is to
+use the CharShift plugin instead of Macros.
+
+#### Code that calls `handleKeyswitchEvent()` or `pressKey()`
+
+It is very likely that if you have custom code that calls
+`handleKeyswitchEvent()` or `pressKey()` directly, it will no longer function
+properly after upgrading. To adapt this code to the new `KeyEvent` system
+requires a deeper understanding of the changes to Kaleidoscope, but likely
+results in much simpler Macros code.
+
+The first thing that is important to understand is that the `macroAction()`
+function will now only be called when a Macros `Key` toggles on or off, not once
+per cycle while the key is held.  This is because the new event handling code in
+Kaleidoscope only calls plugin handlers in those cases, dealing with one event
+at a time, in a single pass through the plugin event handlers (rather than one
+pass per active key)--and only sends a keyboard HID report in response to those
+events, not once per scan cycle.
+
+This means that any Macros code that is meant to keep keycodes in the keyboard
+HID report while the Macros key is held needs to be changed. For example, if a
+macro contained the following code:
+
+```c++
+if (keyIsPressed(key_state)) {
+  Runtime.hid().keyboard().pressKey(Key_LeftShift);
+}
+```
+
+...that wouldn't work quite as expected, because as soon as the next key is
+pressed, a new report would be generated without ever calling `macroAction()`,
+and therefore that change to the HID report would not take place, effectively
+turning off the `shift` modifier immediately before sending the report with the
+keycode that it was intended to modify.
+
+Furthermore, that `shift` modifier would never even get sent in the first place,
+because the HID report no longer gets cleared at the beginning of every
+cycle. Now it doesn't get cleared until _after_ the plugin event handlers get
+called (in the case of Macros, that's `onKeyEvent()`, which calls the
+user-defined `macroAction()` function), so any changes made to the HID report
+from that function will be discarded before it's sent.
+
+Instead of the above, there are two new mechanisms for keeping keys active while
+a Macros key is pressed:
+
+##### Alter the `event.key` value
+
+If your macro only needs to keep a single `Key` value active after running some
+code, and doesn't need to run any custom code when the key is released, the
+simplest thing to do is to override the event's `Key` value:
+
+```c++
+if (keyToggledOn(event.state)) {
+  // do some macro action(s)
+  event.key = Key_LeftShift;
+}
+```
+
+This will (temporarily) replace the Macros key with the value assigned (in this
+case, `Key_LeftShift`), starting immediately after the `macroAction()` function
+returns, and lasting until the key is released. This key value can include
+modifier flags, or it can be a layer-shift, or any other valid `Key` value
+(though it won't get processed by plugins that are initialized before Macros in
+`KALEIDOSCOPE_INIT_PLUGINS()`, and Macros itself won't act on the value, if it
+gets replaced by a different Macros key).
+
+##### Use the supplemental Macros `Key` array
+
+The Macros plugin now contains a small array of `Key` values that will be
+included when building HID reports triggered by subsequent, non-Macros
+events. To use it, just call one (or more) of the following methods:
+
+```c++
+Macros.press(key);
+Macros.release(key);
+Macros.tap(key)
+```
+
+Each one of these functions generates a new artificial key event, and processes
+it (including sending a HID report, if necessary). For `press()` and
+`release()`, it also stores the specified key's value in the Macros supplemental
+`Key` array. In the case of the `tap()` function, it generates matching press
+and release events, but skips storing them, assuming that no plugin will
+generate an intervening event. All of the events generated by these functions
+will be marked `INJECTED`, which will cause Macros itself (and many other
+plugins) to ignore them.
+
+This will allow you to keep multiple `Key` values active while a Macros key is
+held, while leaving the Macros key itself active, enabling more custom code to
+be called on its release.  Note that whenever a Macros key is released, the
+supplemental key array is cleared to minimize the chances of keycodes getting
+"stuck". It is still possible to write a macro that will cause values to persist
+in this array, however, by combining both a sequence that uses key presses
+without matched releases _and_ replacing `event.key` (see above) in the same
+macro.
+
+##### Borrow an idle key (not recommended)
+
+It's also possible to "borrow" one (or more) idle keys on the keyboard by
+searching the `live_keys[]` array for an empty entry, and generating a new event
+with the address of that key. This is not recommended because surprising things
+can happen if that key is then pressed and released, but it's still an option
+for people who like to live dangerously.
+
+#### Code that calls `sendReport()`
+
+Calling `sendReport()` directly from a macro is now almost always unnecessary.
+Instead, a call to `Runtime.handleKeyEvent()` will result in a keyboard HID
+report being sent in response to the generated event without needing to make it
+explicit.
+
+#### Code that uses `Macros.key_addr`
+
+This variable is deprecated. Instead, using the new `macroAction(id, event)`
+function, the address of the Macros key is available via the `event.addr`
+variable.
+
+#### Working with other plugins
+
+##### Plugin-specific `Key` values
+
+When the the Macros plugin generates events, it marks the event state as
+`INJECTED` in order to prevent unbounded recursion (Macros ignores injected
+events).  This causes most other plugins to ignore the event, as well.
+Therefore, including a plugin-specific key (e.g. a OneShot modifier such as
+`OSM(LeftAlt)`) will most likely be ignored by the target plugin, and will
+therefore not have the desired effect. This applies to any calls to
+`Macros.play()` (including returning `MACRO()` from `macroAction()`),
+`Macros.tap()`, `Macros.press()`, and `Macros.release()`.
+
+##### Physical event plugins
+
+Macros cannot usefully produce events handled by plugins that implement the
+`onKeyswitchEvent()` handler, such as Qukeys, TapDance, and Leader.  To make
+those plugins work with Macros, it's necessary to have the other plugin produce
+a Macros key, not the other way around. A `macroAction()` function must not call
+`Runtime.handleKeyswitchEvent()`.
+
+##### OneShot
+
+This is one plugin that you might specifically want to use with a macro,
+generally at the end of a sequence.  For example, a macro for ending one
+sentence and beginning the next one might print a period followed by a space
+(`. `), then a OneShot shift key tap, so that the next character will be
+automatically capitalized. The problem, as mentioned before is that the
+following won't work:
+
+```c++
+MACRO(Tc(Period), Tc(Spacebar), Tr(OSM(LeftShift)))
+```
+
+...because OneShot will ignore the `INJECTED` event.  One solution is to change
+the value of `event.key`, turning the pressed Macros key into a OneShot
+modifier. This will only work if Macros is registered before OneShot in
+`KALEIDOSCOPE_INIT_PLUGINS()`:
+
+```c++
+const macro_t* macroNewSentence(KeyEvent &event) {
+  if (keyToggledOn(event.state)) {
+    event.key = OSM(LeftShift);
+    return MACRO(Tc(Period), Tc(Spacebar));
+  }
+  return MACRO_NONE;
+}
+```
+
+A more robust solution is to explicitly call `Runtime.handleKeyEvent()`, but
+this is more complex, because you'll need to prevent the Macros key from
+clobbering the OneShot key in the `live_keys[]` array:
+
+```c++
+void macroNewSentence(KeyEvent &event) {
+  if (keyToggledOn(event.state)) {
+    Macros.tap(Key_Period);
+    Macros.tap(Key_Spacebar);
+    event.key = OSM(LeftShift);
+    kaleidoscope::Runtime.handleKeyEvent(event);
+    // Last, we invalidate the current event's key address to prevent the Macros
+    // key value from clobbering the OneShot shift.
+    event.key = Key_NoKey;
+    event.addr.clear();
+  }
+}
+```
+
+### Removed `kaleidoscope-builder`
 
 `kaleidoscope-builder` has been removed.
 
 We replaced it with a new Makefile based build system that uses `arduino-cli` instead of of the full Arduino IDE. This means that you can now check out development copies of Kaliedoscope into any directory, using the `KALEIDOSCOPE_DIR` environment variable to point to your installation. 
-
 
 ### OneShot meta keys
 
@@ -640,38 +983,6 @@ Older versions of the plugin were based on `Key` values; OneShot is now based on
 `KeyAddr` coordinates instead, in order to improve reliability and
 functionality.
 
-The following deprecated functions and variables will be removed after
-**2021-04-31**.
-
-#### Deprecated functions
-
-- `OneShot.inject(key, key_state)`: This `Key`-based function still works, but
-  because OneShot keys are now required to have a valid `KeyAddr`, it will now
-  look for an idle key, and use that, masking whatever value was mapped to that
-  key. Most of the reasons for using this function are better addressed by using
-  the newer features of the plugin, such as automatic one-shot modifiers. Use is
-  very strongly discouraged.
-- `OneShot.isActive(key)`: This `Key`-based function no longer makes sense now
-  that OneShot is `KeyAddr`-based. There is a `OneShot.isActive(key_addr)`
-  function that should be used instead. The deprecated function still works, but
-  its use is discouraged.
-- `OneShot.isSticky(key)`: This `Key`-based function no longer makes sense now
-  that OneShot is `KeyAddr`-based. There is a `OneShot.isSticky(key_addr)`
-  function that should be used instead. The deprecated function still works, but
-  its use is discouraged.
-- `OneShot.isPressed()`: This function no longer has any reason for existing. In
-  older versions, the Escape-OneShot companion plugin used it to solve a problem
-  that no longer exists. It now always returns `false`.
-- `OneShot.isModifierActive(key)`: This function still works, but is not
-  perfectly reliable, because it now returns positive results for keys other
-  than OneShot modifiers. It should not be used.
-
-#### Deprecated variables
-
-- `OneShot.time_out`: Use `OneShot.setTimeout()` instead.
-- `OneShot.hold_time_out`: Use `OneShot.setHoldTimeout()` instead.
-- `OneShot.double_tap_time_out`: Use `OneShot.setDoubleTapTimeout()` instead.
-
 ### Qukeys
 
 Older versions of the plugin used `row` and `col` indexing for defining `Qukey`
@@ -718,6 +1029,12 @@ The masking API has been removed on **2021-01-01**
 
 ## Deprecated APIs and their replacements
 
+### Leader plugin
+
+The `Leader.inject()` function is deprecated.  Please call `Runtime.handleKeyEvent()` directly instead.
+
+Direct access to the `Leader.time_out` configuration variable is deprecated.  Please use the `Leader.setTimeout(ms)` function instead.
+
 ### Source code and namespace rearrangement
 
 With the move towards a monorepo-based source, some headers have moved to a new location, and plenty of plugins moved to a new namespace (`kaleidoscope::plugin`). This means that the old headers, and some old names are deprecated. The old names no longer work.
@@ -739,23 +1056,107 @@ The following headers and names have changed:
 - [Syster](plugins/Kaleidoscope-Syster.md) had the `kaleidoscope::Syster::action_t` type replaced by `kaleidoscope::plugin::Syster::action_t`.
 - [TapDance](plugins/Kaleidoscope-TapDance.md) had the `kaleidoscope::TapDance::ActionType` type replaced by `kaleidoscope::plugin::TapDance::ActionType`.
 
-### Live Composite Keymap Cache
-
-The live composite keymap, which contained a lazily-updated version of the current keymap, has been replaced. The `Layer.updateLiveCompositeKeymap()` functions have been deprecated, and depending on the purpose of the caller, it might be appropriate to use `live_keys.activate()` instead.
-
-When `handleKeyswitchEvent()` is looking up a `Key` value for an event, it first checks the value in the active keys cache before calling `Layer.lookup()` to get the value from the keymap. In the vast majority of cases, it won't be necessary to call `live_keys.activate()` manually, however, because simply changing the value of the `Key` parameter of an `onKeyswitchEvent()` handler will have the same effect.
-
-Second, the `Layer.eventHandler()` function has been deprecated. There wasn't much need for this to be available to plugins, and it's possible to call `Layer.handleKeymapKeyswitchEvent()` directly instead.
-
 # Removed APIs
+
+### Removed on 2022-03-03
+
+#### Pre-`KeyEvent` event handler hooks
+
+The old event handler `onKeyswitchEvent(Key &key, KeyAddr addr, uint8_t state)` was removed on **2022-03-03**.  It has been replaced with the new `onKeyEvent(KeyEvent &event)` handler (and, in some special cases the `onKeyswitchEvent(KeyEvent &event)` handler).  Plugins using the deprecated handler will need to be rewritten to use the new one(s).
+
+The old event handler `beforeReportingState()` was removed on **2022-03-03**.  It has been replaced with the new `beforeReportingState(KeyEvent &event)` handler.  However, the new handler will be called only when a report is being sent (generally in response to a key event), not every cycle, like the old one.  It was common practice in the past for plugins to rely on `beforeReportingState()` being called every cycle, so when adapting to the `KeyEvent` API, it's important to check for code that should be moved to `afterEachCycle()` instead.
+
+#### `::handleKeyswitchEvent(Key key, KeyAddr key_addr, uint8_t state)`
+
+The old master function for processing key "events" was removed on **2022-03-03**.  Functions that were calling this function should be rewritten to call `kaleidoscope::Runtime.handleKeyEvent(KeyEvent event)` instead.
+
+#### `Keyboard::pressKey(Key key, bool toggled_on)`
+
+This deprecated function was removed on **2022-03-03**.  Its purpose was to handle rollover events for keys that include modifier flags, and that handling is now done elsewhere.  Any code that called it should now simply call `Keyboard::pressKey(Key key)` instead, dropping the second argument.
+
+#### Old layer key event handler functions
+
+The deprecated `Layer.handleKeymapKeyswitchEvent()` function was removed on **2022-03-03**.  Any code that called it should now call `Layer.handleLayerKeyEvent()` instead, with `event.addr` set to the appropriate `KeyAddr` value if possible, and `KeyAddr::none()` otherwise.
+
+The deprecated `Layer.eventHandler(key, addr, state)` function was removed on **2022-03-03**.  Any code that refers to it should now call call `handleLayerKeyEvent(KeyEvent(addr, state, key))` instead.
+
+#### Keymap cache functions
+
+The deprecated `Layer.updateLiveCompositeKeymap()` function was removed on **2022-03-03**.  Plugin and user code probably shouldn't have been calling this directly, so there's no direct replacement for it.  If a plugin needs to make changes to the `live_keys` structure (equivalent in some circumstances to the old "live composite keymap"), it can call `live_keys.activate(addr, key)`, but there are probably better ways to accomplish this goal (e.g. simply changing the value of `event.key` from an `onKeyEvent(event)` handler).
+
+The deprecated `Layer.lookup(addr)` function was removed on **2022-03-03**.  Please use `Runtime.lookupKey(addr)` instead in most circumstances.  Alternatively, if you need information about the current state of the keymap regardless of any currently active keys (which may have values that override the keymap), use `Layer.lookupOnActiveLayer(addr)` instead.
+
+#### `LEDControl.syncDelay` configuration variable
+
+Direct access to this configuration variable was removed on **2022-03-03**.  Please use `LEDControl.setInterval()` to set the interval between LED updates instead.
+
+#### Obsolete active macros array removed
+
+The deprecated `Macros.active_macro_count` variable was removed on **2022-03-03**.  Any references to it are obsolete, and can simply be removed.
+
+The deprecated `Macros.active_macros[]` array was removed on **2022-03-03**.  Any references to it are obsolete, and can simply be removed.
+
+The deprecated `Macros.addActiveMacroKey()` function was removed on **2022-03-03**.  Any references to it are obsolete, and can simply be removed.
+
+#### Pre-`KeyEvent` Macros API
+
+This is a brief summary of specific elements that were removed.  There is a more comprehensive guide to upgrading existing Macros user code in the [Breaking Changes](#breaking-changes) section, under [Macros](#macros).
+
+Support for deprecated form of the `macroAction(uint8_t macro_id, uint8_t key_state)` function was removed on **2022-03-03**.  This old form must be replaced with the new `macroAction(uint8_t macro_id, KeyEvent &event)` for macros to continue working.
+
+The `Macros.key_addr` public variable was removed on **2022-03-03**.  To get access to the key address of a Macros key event, simply refer to `event.addr` from within the new `macroAction(macro_id, event)` function.
+
+The deprecated `MACRODOWN()` preprocessor macro was removed on **2022-03-03**.  Since most macros are meant to be triggered only by keypress events (not key release), and because `macroAction()` does not get called every cycle for held keys, it's better to simply do one test for `keyToggledOn(event.state)` first, then use `MACRO()` instead.
+
+#### ActiveModColor public variables
+
+The following deprecated `ActiveModColorEffect` public variables were removed on **2022-03-03**.  Please use the following methods instead:
+
+ - For `ActiveModColor.highlight_color`, use `ActiveModColor.setHighlightColor(color)`
+ - For `ActiveModColor.oneshot_color`, use `ActiveModColor.setOneShotColor(color)`
+ - For `ActiveModColor.sticky_color`, use `ActiveModColor.setStickyColor(color)`
+
+#### OneShot public variables
+
+The following deprecated `OneShot` public variables were removed on **2022-03-03**.  Please use the following methods instead:
+
+ - For `OneShot.time_out`, use `OneShot.setTimeout(ms)`
+ - For `OneShot.hold_time_out`, use `OneShot.setHoldTimeout(ms)`
+ - For `OneShot.double_tap_time_out`, use `OneShot.setDoubleTapTimeout(ms)`
+
+#### Deprecated OneShot API functions
+
+OneShot was completely rewritten in early 2021, and now is based on `KeyAddr` values (as if it keeps physical keys pressed) rather than `Key` values (with no corresponding physical key location).  This allows it to operate on any `Key` value, not just modifiers and layer shifts.
+
+The deprecated `OneShot.inject(key, key_state)` function was removed on **2022-03-03**.  Its use was very strongly discouraged, and is now unavailable.  See below for alternatives.
+
+The deprecated `OneShot.isActive(key)` function was removed on **2022-03-03**.  There is a somewhat equivalent `OneShot.isActive(KeyAddr addr)` function to use when the address of a key that might be currently held active by OneShot is known.  Any code that needs information about active keys is better served by not querying OneShot specifically.
+
+The deprecated `OneShot.isSticky(key)` function was removed on **2022-03-03**.  There is a somewhat equivalent `OneShot.isStick(KeyAddr addr)` function to use when the address of a key that may be in the one-shot sticky state is known.
+
+The deprecated `OneShot.isPressed()` function was removed on **2022-03-03**.  It was already devoid of functionality, and references to it can be safely removed.
+
+The deprecated `OneShot.isModifierActive(key)` function was removed on **2022-03-03**.  OneShot modifiers are now indistinguishable from other modifier keys, so it is better for client code to do a more general search of `live_keys` or to use another mechanism for tracking this state.
+
+#### `HostPowerManagement.enableWakeup()`
+
+This deprecated function was removed on **2022-03-03**.  The firmware now supports wakeup by default, so any references to it can be safely removed.
+
+#### `EEPROMSettings.version(uint8_t version)`
+
+This deprecated function was removed on **2022-03-03**.  The information stored is not longer intended for user code to set, but instead is used internally.
+
+#### Model01-TestMode plugin
+
+This deprecated plugin was removed on **2022-03-03**.  Please use the more generic HardwareTestMode plugin instead.
 
 ### Removed on 2020-10-10
 
-### Deprecation of the HID facade
+#### Deprecation of the HID facade
 
 With the new Device APIs it became possible to replace the HID facade (the `kaleidoscope::hid` family of functions) with a driver. As such, the old APIs are deprecated, and was removed on 2020-10-10. Please use `Kaleidoscope.hid()` instead.
 
-### Implementation of type Key internally changed from C++ union to class
+#### Implementation of type Key internally changed from C++ union to class
 
 The deprecated functions were removed on 2020-10-10.
 

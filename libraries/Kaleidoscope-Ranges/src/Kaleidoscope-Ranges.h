@@ -49,6 +49,8 @@ enum : uint16_t {
   // This is undesirable, because it prevents us from making a clear distinction
   // between plugin key values and core key values. The magic number
   // `0b00100000` is the old `IS_MACRO` key flags bit.
+  MACRO_FIRST = (SYNTHETIC | 0b00100000) << 8,
+  MACRO_LAST  = MACRO_FIRST + 255,
 
   FIRST       = 0xc000,
   KALEIDOSCOPE_FIRST = FIRST,
@@ -78,12 +80,8 @@ enum : uint16_t {
   SC_LAST,
   REDIAL,
   TURBO,
-  MACRO_FIRST,
-  MACRO_LAST  = MACRO_FIRST + 255,
   DYNAMIC_MACRO_FIRST,
-  DYNAMIC_MACRO_LAST = DYNAMIC_MACRO_FIRST + 63,
-  DYNAMIC_SUPER_FIRST,
-  DYNAMIC_SUPER_LAST = DYNAMIC_SUPER_FIRST + 63,
+  DYNAMIC_MACRO_LAST = DYNAMIC_MACRO_FIRST + 31,
   OS_META_STICKY,
   OS_ACTIVE_STICKY,
   OS_CANCEL,
