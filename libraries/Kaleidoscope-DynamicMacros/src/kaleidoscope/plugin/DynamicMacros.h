@@ -34,13 +34,18 @@ namespace kaleidoscope
     class DynamicMacros : public kaleidoscope::Plugin
     {
     public:
-      EventHandlerResult onNameQuery();
-      EventHandlerResult onKeyEvent(KeyEvent &event);
-      EventHandlerResult onFocusEvent(const char *command);
 
       static void reserve_storage(uint16_t size);
 
+      /// Play a macro sequence of key events
       void play(uint8_t seq_id);
+
+      // ---------------------------------------------------------------------------
+      // Event handlers
+      EventHandlerResult onNameQuery();
+      EventHandlerResult onKeyEvent(KeyEvent &event);
+      EventHandlerResult beforeReportingState(const KeyEvent &event);
+      EventHandlerResult onFocusEvent(const char *command);
 
     private:
       static uint16_t storage_base_;

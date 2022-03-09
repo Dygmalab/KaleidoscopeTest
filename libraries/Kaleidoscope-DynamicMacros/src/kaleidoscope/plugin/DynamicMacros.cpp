@@ -271,6 +271,19 @@ namespace kaleidoscope
               key.getRaw() <= ranges::DYNAMIC_MACRO_LAST);
     }
 
+    EventHandlerResult DynamicMacros::beforeReportingState(const KeyEvent &event) {
+      // Do this in beforeReportingState(), instead of `onAddToReport()` because
+      // `live_keys` won't get updated until after the macro sequence is played from
+      // the keypress. This could be changed by either updating `live_keys` manually
+      // ahead of time, or by executing the macro sequence on key release instead of
+      // key press. This is probably the simplest solution.
+      for (Key key : active_macro_keys_) {
+        if (key != Key_NoKey)
+          Runtime.addToReport(key);
+      }
+      return EventHandlerResult::OK;
+    }
+
     // -----------------------------------------------------------------------------
     EventHandlerResult DynamicMacros::onKeyEvent(KeyEvent &event)
     {
