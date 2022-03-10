@@ -18,6 +18,8 @@
 #include "kaleidoscope/Runtime.h"
 #include <Kaleidoscope-HostPowerManagement.h>
 #include <Kaleidoscope-LEDControl.h>
+#include "kaleidoscope/keyswitch_state.h"
+
 
 #ifdef __AVR__
 // This is a terrible hack until Arduino#6964 gets implemented.
@@ -36,6 +38,16 @@ uint16_t HostPowerManagement::suspend_timer = 0;
 uint16_t HostPowerManagement::saved_fnum = 0;
 uint8_t HostPowerManagement::fnum_counter = 0;
 #endif
+
+EventHandlerResult HostPowerManagement::onKeyEvent(KeyEvent& event) {
+  if (keyIsInjected(event.state))
+    return EventHandlerResult::OK;
+
+    if (was_suspended_) {
+      USB->DEVICE.CTRLB.bit.UPRSM = 1;
+    }
+  return EventHandlerResult::OK;
+}
 
 EventHandlerResult HostPowerManagement::beforeEachCycle() {
 

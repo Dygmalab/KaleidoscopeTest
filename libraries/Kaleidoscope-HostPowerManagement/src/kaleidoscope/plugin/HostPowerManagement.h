@@ -39,6 +39,7 @@ class HostPowerManagement : public kaleidoscope::Plugin {
   void enableWakeup(void) DEPRECATED(ENABLEWAKEUP) {}
 
   EventHandlerResult beforeEachCycle();
+  EventHandlerResult onKeyEvent(KeyEvent &event);
 
  private:
   static bool was_suspended_;
