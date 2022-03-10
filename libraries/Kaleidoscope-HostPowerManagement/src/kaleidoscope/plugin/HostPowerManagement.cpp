@@ -19,15 +19,23 @@
 #include <Kaleidoscope-HostPowerManagement.h>
 #include <Kaleidoscope-LEDControl.h>
 
+#ifdef __AVR__
 // This is a terrible hack until Arduino#6964 gets implemented.
 // It makes the `_usbSuspendState` symbol available to us.
 extern uint8_t _usbSuspendState;
+#endif
 
 namespace kaleidoscope {
 namespace plugin {
 
 bool HostPowerManagement::was_suspended_ = false;
+#ifdef __AVR__
 bool HostPowerManagement::initial_suspend_ = true;
+#elif defined(ARDUINO_ARCH_SAMD)
+uint16_t HostPowerManagement::suspend_timer = 0;
+uint16_t HostPowerManagement::saved_fnum = 0;
+uint8_t HostPowerManagement::fnum_counter = 0;
+#endif
 
 EventHandlerResult HostPowerManagement::beforeEachCycle() {
 
@@ -48,6 +56,32 @@ EventHandlerResult HostPowerManagement::beforeEachCycle() {
       was_suspended_ = false;
       hostPowerManagementEventHandler(Resume);
     }
+  }
+#elif defined(ARDUINO_ARCH_SAMD)
+  // Check the frame number to determine if we're suspended
+  uint8_t delay = 50;
+  if (Runtime.hasTimeExpired(suspend_timer, delay)) {
+    if (saved_fnum == USB->DEVICE.FNUM.bit.FNUM) {
+      if (!was_suspended_) {
+        // If we have the same frame number for 20 * 50 milliseconds we're most likely suspended
+        if (fnum_counter >= 20) {
+          hostPowerManagementEventHandler(Suspend);
+          was_suspended_ = true;
+        } else {
+          fnum_counter++;
+        }
+      }
+    } else {
+      if (was_suspended_) {
+        hostPowerManagementEventHandler(Resume);
+        was_suspended_ = false;
+      }
+
+      saved_fnum = USB->DEVICE.FNUM.bit.FNUM;
+      fnum_counter = 0;
+    }
+
+    suspend_timer = Runtime.millisAtCycleStart();
   }
 #endif
 

@@ -22,8 +22,7 @@
 #define _DEPRECATED_MESSAGE_ENABLEWAKEUP                                    \
   "The HostPowerManagement.enableWakeup() call is not necessary anymore,\n" \
   "the firmware supports wakeup by default now. The line can be safely\n"   \
-  "removed.\n"                                                          \
-  "This function will be removed after 2021-08-01."
+  "removed."
 
 namespace kaleidoscope {
 namespace plugin {
@@ -43,7 +42,13 @@ class HostPowerManagement : public kaleidoscope::Plugin {
 
  private:
   static bool was_suspended_;
+#ifdef __AVR__
   static bool initial_suspend_;
+#elif defined ARDUINO_ARCH_SAMD
+  static uint16_t suspend_timer;
+  static uint16_t saved_fnum;
+  static uint8_t fnum_counter;
+#endif
 };
 }
 
