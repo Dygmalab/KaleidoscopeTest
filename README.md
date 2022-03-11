@@ -31,6 +31,7 @@ Download the firmware repo in a folder of your choosing
 ```
 git clone <https://github.com/Dygmalab/Raise-Firmware.git>
 ```
+and switch to the superkeys branch in the raise-firmware repo to be able to work with the latest kaleidoscope version
 
 # Build and flash the firmware
 
