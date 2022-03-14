@@ -6,7 +6,7 @@ namespace kaleidoscope { namespace plugin {
 	uint16_t LEDDigitalRainEffect::DROP_MS = 180;
 	uint8_t LEDDigitalRainEffect::NEW_DROP_PROBABILITY = 18;
 	uint8_t LEDDigitalRainEffect::PURE_GREEN_INTENSITY = 0xd0;
-	uint8_t LEDDigitalRainEffect::MAXIMUM_BRIGHTNESS_BOOST = 0xc0;
+	uint8_t LEDDigitalRainEffect::MAXIMUM_BRIGHTNESS_BOOST = 0xff;
 	uint8_t LEDDigitalRainEffect::COLOR_CHANNEL = 1;
 
 	void LEDDigitalRainEffect::update(void) {
@@ -38,7 +38,6 @@ namespace kaleidoscope { namespace plugin {
 				::LEDControl.setCrgbAt(KeyAddr(row, col), getColorFromIntensity(map[col][row]));
 			}
 		}
-
 		// Paint underglow
 		for (uint8_t ld = 69; ld < 131; ld++) {
 			uint16_t led_hue = 0;
@@ -49,22 +48,34 @@ namespace kaleidoscope { namespace plugin {
 			// within cap. This lays out the rainbow in a kind of wave.
 			switch (distance)
 			{
-			case 0:
-				led_hue = 70;
+			case 9:
+				led_hue = 45;
 				break;
-			case 1:
-				led_hue = 105;
+			case 8:
+				led_hue = 65;
 				break;
-			case 2:
-				led_hue = 140;
+			case 7:
+				led_hue = 80;
 				break;
-			case 3:
-				led_hue = 175;
-				break;
-			case 4:
-				led_hue = 200;
+			case 6:
+				led_hue = 85;
 				break;
 			case 5:
+				led_hue = 90;
+				break;
+			case 4:
+				led_hue = 105;
+				break;
+			case 3:
+				led_hue = 170;
+				break;
+			case 2:
+				led_hue = 215;
+				break;
+			case 1:
+				led_hue = 225;
+				break;
+			case 0:
 				led_hue = 255;
 				break;
 			default:
@@ -75,9 +86,14 @@ namespace kaleidoscope { namespace plugin {
 			cRGB underg = hsvToRgb(120, 255, led_hue);
 			::LEDControl.setCrgbAt(ld, underg);
 		}
-		UNDERGLOW_POS += 1;
-		if(UNDERGLOW_POS > 60){
-			UNDERGLOW_POS = 0;
+
+		// Movement trigger
+		if (Runtime.hasTimeExpired(underglowTimestamp, 40)) {
+			UNDERGLOW_POS += 1;
+			if(UNDERGLOW_POS > 60){
+				UNDERGLOW_POS = 0;
+			}
+			underglowTimestamp = Runtime.millisAtCycleStart();
 		}
 
 		// Drop the raindrops one row periodically

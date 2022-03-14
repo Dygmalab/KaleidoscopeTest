@@ -73,6 +73,11 @@ namespace kaleidoscope { namespace plugin {
 			uint32_t previousTimestamp = 0;
 
 			/**
+			 * Underglow position trigger tick.
+			 */
+			uint32_t underglowTimestamp = 0;
+
+			/**
 			 * Keep track of whether raindrops fell on the last
 			 * tick.
 			 */
