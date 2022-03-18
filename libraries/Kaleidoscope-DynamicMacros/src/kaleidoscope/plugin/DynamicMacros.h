@@ -46,6 +46,9 @@ namespace kaleidoscope
       EventHandlerResult onKeyEvent(KeyEvent &event);
       EventHandlerResult beforeReportingState(const KeyEvent &event);
       EventHandlerResult onFocusEvent(const char *command);
+      
+      uint16_t minRInterval;
+      uint16_t maxRInterval;
 
     private:
       static uint16_t storage_base_;
@@ -56,6 +59,7 @@ namespace kaleidoscope
       static void press(Key key);
       static void release(Key key);
       static void tap(Key key);
+      void randomDelay(void);
     };
 
   } // namespace plugin
