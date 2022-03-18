@@ -146,6 +146,10 @@ namespace kaleidoscope
           break;
         }
 
+        case MACRO_ACTION_STEP_WAIT_RANDOM:
+          previous_macro_ended = false;
+          break;
+
         case MACRO_ACTION_END:
           map_[++current_id] = pos - storage_base_;
 
@@ -250,6 +254,10 @@ namespace kaleidoscope
           break;
         }
 
+        case MACRO_ACTION_STEP_WAIT_RANDOM:
+          randomDelay();
+          break;
+
         case MACRO_ACTION_END:
         default:
           return;
@@ -263,6 +271,17 @@ namespace kaleidoscope
         }
 #endif
       }
+    }
+
+    void DynamicMacros::randomDelay(void)
+    {
+      if (!WDT->STATUS.bit.SYNCBUSY) // Check if the WDT registers are synchronized
+      {
+        REG_WDT_CLEAR = WDT_CLEAR_CLEAR_KEY; // Clear the watchdog timer
+      }
+
+      uint16_t tRandom = random(minRInterval, maxRInterval);
+      customDelay(tRandom); //   Delay ms compatible con watchdog > 1000ms
     }
 
     bool isDynamicMacrosKey(Key key)
