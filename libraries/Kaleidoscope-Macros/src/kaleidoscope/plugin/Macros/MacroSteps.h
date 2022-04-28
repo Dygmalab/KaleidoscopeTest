@@ -37,6 +37,8 @@ typedef enum {
 
   MACRO_ACTION_STEP_TAP_SEQUENCE,
   MACRO_ACTION_STEP_TAP_CODE_SEQUENCE,
+  
+  MACRO_ACTION_STEP_WAIT_RANDOM,
 } MacroActionStepType;
 
 typedef uint8_t macro_t;
