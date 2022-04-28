@@ -127,11 +127,6 @@ EventHandlerResult Focus::onFocusEvent(const char *command) {
     return EventHandlerResult::EVENT_CONSUMED;
   }
 
-  if (strcmp_P(command + 9, PSTR("jh")) == 0) {
-    ::Focus.send("Hola Juan");
-    return EventHandlerResult::EVENT_CONSUMED;
-  }
-
   return EventHandlerResult::OK;
 }
 
