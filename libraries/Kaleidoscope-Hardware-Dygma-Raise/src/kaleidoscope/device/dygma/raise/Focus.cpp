@@ -122,6 +122,11 @@ EventHandlerResult Focus::onFocusEvent(const char *command) {
     }
   }
 
+  if (strcmp_P(command + 9, PSTR("chip_id")) == 0) {
+    ::Focus.send(Runtime.device().settings.getChipID());
+    return EventHandlerResult::EVENT_CONSUMED;
+  }
+
   return EventHandlerResult::OK;
 }
 
