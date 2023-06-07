@@ -236,8 +236,8 @@ void RaiseSide::sendLEDBank(uint8_t bank) {
     // reducing the red component a little.
     //
     // FIXME(@anyone): This should eventually be configurable someway.
-    if ((i + 1) % 3 == 1 && data[i + 1] >= 26) {
-      data[i + 1] -= 26;
+    if ((i + 1) % 3 == 1) {
+      data[i + 1] = data[i + 1] * red_max_fraction_ / 100;
     }
   }
   uint8_t result = twi_.writeTo(data, ELEMENTS(data));
