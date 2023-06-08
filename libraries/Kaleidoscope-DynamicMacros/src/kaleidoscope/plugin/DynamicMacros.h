@@ -50,7 +50,7 @@ namespace kaleidoscope
     private:
       static uint16_t storage_base_;
       static uint16_t storage_size_;
-      static uint16_t map_[63];
+      static uint16_t map_[127];
       static void updateDynamicMacroCache();
       static Key active_macro_keys_[MAX_CONCURRENT_DYNAMIC_MACRO_KEYS];
       static void press(Key key);

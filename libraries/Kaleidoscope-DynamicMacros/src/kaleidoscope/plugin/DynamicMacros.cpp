@@ -64,7 +64,7 @@ namespace kaleidoscope
       Runtime.handleKeyEvent(KeyEvent(KeyAddr::none(), WAS_PRESSED | INJECTED, key));
     }
 
-    void customDelay(uint16_t time)
+void customDelay(uint16_t time)
     {
       int c = (int)time / 1000;
       int d = time % 1000;
@@ -80,10 +80,38 @@ namespace kaleidoscope
           delay(1000);
           c -= 1;
         }
+#ifdef ARDUINO_SAMD_RAISE
         if (!WDT->STATUS.bit.SYNCBUSY) // Check if the WDT registers are synchronized
         {
           REG_WDT_CLEAR = WDT_CLEAR_CLEAR_KEY; // Clear the watchdog timer
         }
+#endif
+      }
+    }
+
+    void randomDelay(uint16_t randomA, uint16_t randomB)
+    {
+     int rnd = random(randomA, randomB);
+      int c = (int)rnd / 1000;
+      int d = rnd % 1000;
+      while (c >= 0)
+      {
+        if (c == 0)
+        {
+          delay(d);
+          c -= 1;
+        }
+        else
+        {
+          delay(1000);
+          c -= 1;
+        }
+#ifdef ARDUINO_SAMD_RAISE
+        if (!WDT->STATUS.bit.SYNCBUSY) // Check if the WDT registers are synchronized
+        {
+          REG_WDT_CLEAR = WDT_CLEAR_CLEAR_KEY; // Clear the watchdog timer
+        }
+#endif
       }
     }
 
@@ -162,8 +190,7 @@ namespace kaleidoscope
     void DynamicMacros::play(uint8_t macro_id)
     {
       macro_t macro = MACRO_ACTION_END;
-      uint8_t interval = 0, inter1 = 0, inter2 = 0;
-      uint16_t pos, wait;
+      uint16_t pos, interval = 0;
       Key key;
 
       pos = storage_base_ + map_[macro_id];
@@ -178,15 +205,19 @@ namespace kaleidoscope
           break;
 
         case MACRO_ACTION_STEP_INTERVAL:
-          inter1 = Runtime.storage().read(pos++);
-          inter2 = Runtime.storage().read(pos++);
-          interval = (inter1 << 8) | inter2;
+          uint8_t rnd1 = Runtime.storage().read(pos++);
+          uint8_t rnd2 = Runtime.storage().read(pos++);
+          uint8_t rnd3 = Runtime.storage().read(pos++);
+          uint8_t rnd4 = Runtime.storage().read(pos++);
+          uint16_t randomA = (rnd1 << 8) | rnd2;
+          uint16_t randomB = (rnd3 << 8) | rnd4;
+          randomDelay(randomA, randomB);
           break;
         case MACRO_ACTION_STEP_WAIT:
         {
-          inter2 = Runtime.storage().read(pos++);
-          inter1 = Runtime.storage().read(pos++);
-          wait = (inter2 << 8) | inter1;
+          uint8_t d2 = Runtime.storage().read(pos++);
+          uint8_t d1 = Runtime.storage().read(pos++);
+          uint16_t wait = (d2 << 8) | d1;
           customDelay(wait);
           break;
         }
