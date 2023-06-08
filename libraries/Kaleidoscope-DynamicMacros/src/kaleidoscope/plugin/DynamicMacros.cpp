@@ -190,6 +190,7 @@ void customDelay(uint16_t time)
     void DynamicMacros::play(uint8_t macro_id)
     {
       macro_t macro = MACRO_ACTION_END;
+      uint16_t randomA, randomB;
       uint16_t pos, interval = 0;
       Key key;
 
@@ -205,14 +206,16 @@ void customDelay(uint16_t time)
           break;
 
         case MACRO_ACTION_STEP_INTERVAL:
+        {
           uint8_t rnd1 = Runtime.storage().read(pos++);
           uint8_t rnd2 = Runtime.storage().read(pos++);
           uint8_t rnd3 = Runtime.storage().read(pos++);
           uint8_t rnd4 = Runtime.storage().read(pos++);
-          uint16_t randomA = (rnd1 << 8) | rnd2;
-          uint16_t randomB = (rnd3 << 8) | rnd4;
+          randomA = (rnd1 << 8) | rnd2;
+          randomB = (rnd3 << 8) | rnd4;
           randomDelay(randomA, randomB);
           break;
+        }
         case MACRO_ACTION_STEP_WAIT:
         {
           uint8_t d2 = Runtime.storage().read(pos++);
@@ -282,8 +285,13 @@ void customDelay(uint16_t time)
         }
 
         case MACRO_ACTION_END:
-        default:
+        {
           return;
+        }
+        default:
+        {
+            return;
+        }
         }
 
         customDelay(interval);
