@@ -344,7 +344,7 @@ void customDelay(uint16_t time)
 
     EventHandlerResult DynamicMacros::onFocusEvent(const char *command)
     {
-      if (::Focus.handleHelp(command, PSTR("macros.map\nmacros.trigger")))
+      if (::Focus.handleHelp(command, PSTR("macros.map\nmacros.trigger\nmacros.memory")))
         return EventHandlerResult::OK;
 
       if (strncmp_P(command, PSTR("macros."), 7) != 0)
@@ -382,6 +382,14 @@ void customDelay(uint16_t time)
         uint8_t id = 0;
         ::Focus.read(id);
         play(id);
+      }
+
+      if (strcmp_P(command + 7, PSTR("memory")) == 0)
+      {
+        if (::Focus.isEOL())
+        {
+          ::Focus.send(storage_size_);
+        }
       }
 
       return EventHandlerResult::EVENT_CONSUMED;
