@@ -224,6 +224,9 @@ EventHandlerResult FocusLEDCommand::onFocusEvent(const char *command) {
     AT,
     THEME,
     BRIGHTNESS,
+    BRIGHTNESSUG,
+    SETMULTIPLE,
+    GETMULTIPLE,
   } subCommand;
 
   if (!Runtime.has_leds)
@@ -231,6 +234,8 @@ EventHandlerResult FocusLEDCommand::onFocusEvent(const char *command) {
 
   if (::Focus.handleHelp(command, PSTR("led.at\n"
                                        "led.setAll\n"
+                                       "led.setMultiple\n"
+                                       "led.getMultiple\n"
                                        "led.mode\n"
                                        "led.brightness\n"
                                        "led.theme")))
@@ -248,6 +253,12 @@ EventHandlerResult FocusLEDCommand::onFocusEvent(const char *command) {
     subCommand = THEME;
   else if (strcmp_P(command + 4, PSTR("brightness")) == 0)
     subCommand = BRIGHTNESS;
+  else if (strcmp_P(command + 4, PSTR("brightnessUG")) == 0)
+    subCommand = BRIGHTNESSUG;
+  else if (strcmp_P(command + 4, PSTR("setMultiple")) == 0)
+    subCommand = SETMULTIPLE;
+  else if (strcmp_P(command + 4, PSTR("getMultiple")) == 0)
+    subCommand = GETMULTIPLE;
   else
     return EventHandlerResult::OK;
 
@@ -281,6 +292,17 @@ EventHandlerResult FocusLEDCommand::onFocusEvent(const char *command) {
     }
     break;
   }
+  case BRIGHTNESSUG: {
+    if (::Focus.isEOL()) {
+      ::Focus.send(::LEDControl.getBrightnessUG());
+    } else {
+      uint8_t brightnessUG;
+
+      ::Focus.read(brightnessUG);
+      ::LEDControl.setBrightnessUG(brightnessUG);
+    }
+    break;
+  }
   case SETALL: {
     cRGB c;
 
@@ -288,6 +310,29 @@ EventHandlerResult FocusLEDCommand::onFocusEvent(const char *command) {
 
     ::LEDControl.set_all_leds_to(c);
 
+    break;
+  }
+  case SETMULTIPLE:{
+    uint8_t id;
+    cRGB c = {0, 0, 0};
+    ::Focus.read(c);
+    while(!::Focus.isEOL()){
+      ::Focus.read(id);
+      ::LEDControl.setCrgbAt(id, c);
+    }
+
+    break;
+  }
+  case GETMULTIPLE:{
+    uint8_t id; 
+    while(!::Focus.isEOL()){
+      ::Focus.read(id);
+      cRGB c = LEDControl::getCrgbAt(id);
+        ::Focus.send(id);
+        ::Focus.send("#");
+        ::Focus.send(c);
+        ::Focus.send("\n");
+    }
     break;
   }
   case MODE: {

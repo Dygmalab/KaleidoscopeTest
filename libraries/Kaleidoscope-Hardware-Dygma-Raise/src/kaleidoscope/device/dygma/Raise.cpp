@@ -75,12 +75,20 @@ namespace kaleidoscope
           return led_brightness_correction_;
         }
 
+        static void ledBrightnessCorrectionUG(uint8_t brightness);
+        static uint8_t ledBrightnessCorrectionUG()
+        {
+          return led_brightness_correction_ug_;
+        }
+
       private:
         static uint16_t keyscan_interval_;
         static uint8_t led_brightness_correction_;
+        static uint8_t led_brightness_correction_ug_;
         static bool side_power_;
         static uint16_t settings_base_;
         static uint16_t settings_brightness_;
+        static uint16_t settings_brightness_ug_;
         static constexpr uint8_t iso_only_led_ = 19;
       };
 
@@ -90,7 +98,9 @@ namespace kaleidoscope
       bool RaiseHands::side_power_;
       uint16_t RaiseHands::settings_base_;
       uint16_t RaiseHands::settings_brightness_;
+      uint16_t RaiseHands::settings_brightness_ug_;
       uint8_t RaiseHands::led_brightness_correction_ = 255;
+      uint8_t RaiseHands::led_brightness_correction_ug_ = 255;
       uint16_t RaiseHands::keyscan_interval_ = 50;
 
       void RaiseHands::setSidePower(bool power)
@@ -104,6 +114,8 @@ namespace kaleidoscope
         settings_base_ = ::EEPROMSettings.requestSlice(sizeof(keyscan_interval_));
         settings_brightness_ =
             ::EEPROMSettings.requestSlice(sizeof(led_brightness_correction_));
+        settings_brightness_ug_ =
+            ::EEPROMSettings.requestSlice(sizeof(led_brightness_correction_ug_));
 
         // If keyscan is max, assume that EEPROM is uninitialized, and store the
         // defaults.
@@ -124,6 +136,15 @@ namespace kaleidoscope
           Runtime.storage().commit();
         }
         Runtime.storage().get(settings_brightness_, led_brightness_correction_);
+
+        uint8_t brightness_ug;
+        Runtime.storage().get(settings_brightness_ug_, brightness_ug);
+        if (brightness_ug == 0xff)
+        {
+          Runtime.storage().put(settings_brightness_ug_, led_brightness_correction_ug_);
+          Runtime.storage().commit();
+        }
+        Runtime.storage().get(settings_brightness_ug_, led_brightness_correction_ug_);
       }
 
       void RaiseHands::keyscanInterval(uint16_t interval)
@@ -141,6 +162,15 @@ namespace kaleidoscope
         rightHand.setBrightness(brightness);
         led_brightness_correction_ = brightness;
         Runtime.storage().put(settings_brightness_, led_brightness_correction_);
+        Runtime.storage().commit();
+      }
+
+      void RaiseHands::ledBrightnessCorrectionUG(uint8_t brightness)
+      {
+        leftHand.setBrightnessUG(brightness);
+        rightHand.setBrightnessUG(brightness);
+        led_brightness_correction_ug_ = brightness;
+        Runtime.storage().put(settings_brightness_ug_, led_brightness_correction_ug_);
         Runtime.storage().commit();
       }
 
@@ -166,6 +196,10 @@ namespace kaleidoscope
         // led brightness from eeprom
         leftHand.setBrightness(led_brightness_correction_);
         rightHand.setBrightness(led_brightness_correction_);
+
+        // led UG brightness from eeprom
+        leftHand.setBrightnessUG(led_brightness_correction_ug_);
+        rightHand.setBrightnessUG(led_brightness_correction_ug_);
 
         // get ANSI/ISO at every side replug
         uint8_t l_layout = leftHand.readLayout();
@@ -214,9 +248,24 @@ namespace kaleidoscope
         }
       }
 
+      void RaiseLEDDriver::setBrightnessUG(uint8_t brightness)
+      {
+        RaiseHands::ledBrightnessCorrectionUG(brightness);
+        for (uint8_t i = 0; i < LED_BANKS; i++)
+        {
+          isLEDChangedLeft[i] = true;
+          isLEDChangedRight[i] = true;
+        }
+      }
+
       uint8_t RaiseLEDDriver::getBrightness()
       {
         return RaiseHands::ledBrightnessCorrection();
+      }
+      
+      uint8_t RaiseLEDDriver::getBrightnessUG()
+      {
+        return RaiseHands::ledBrightnessCorrectionUG();
       }
 
       void RaiseLEDDriver::syncLeds()

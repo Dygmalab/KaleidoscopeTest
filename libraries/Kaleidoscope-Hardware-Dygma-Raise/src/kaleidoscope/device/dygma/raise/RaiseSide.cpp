@@ -224,10 +224,18 @@ void RaiseSide::sendLEDBank(uint8_t bank) {
   data[0]  = TWI_CMD_LED_BASE + bank;
   for (uint8_t i = 0 ; i < LED_BYTES_PER_BANK; i++) {
     uint8_t c = led_data.bytes[bank][i];
-    if (c > brightness_adjustment_)
-      c -= brightness_adjustment_;
-    else
-      c = 0;
+    if(bank < 4 || (bank == 4 && i < 6) || (bank > 7 && i > 5))
+    {
+      if (c > brightness_adjustment_)
+        c -= brightness_adjustment_;
+      else
+        c = 0;
+    } else {
+      if (c > brightness_adjustment_ug_)
+        c -= brightness_adjustment_ug_;
+      else
+        c = 0;
+    }
 
     data[i + 1] = pgm_read_byte(&gamma8[c]);
 

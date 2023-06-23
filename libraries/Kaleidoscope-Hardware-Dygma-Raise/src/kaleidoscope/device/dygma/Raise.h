@@ -70,6 +70,8 @@ namespace kaleidoscope
         static cRGB getCrgbAt(uint8_t i);
         static void setBrightness(uint8_t brightness);
         static uint8_t getBrightness();
+        static void setBrightnessUG(uint8_t brightness);
+        static uint8_t getBrightnessUG();
 
         static void updateNeuronLED();
 

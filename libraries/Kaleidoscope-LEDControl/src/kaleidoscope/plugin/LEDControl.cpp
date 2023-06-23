@@ -205,6 +205,7 @@ EventHandlerResult FocusLEDCommand::onFocusEvent(const char *command) {
     AT,
     THEME,
     BRIGHTNESS,
+    BRIGHTNESSUG,
     SETMULTIPLE,
     GETMULTIPLE,
   } subCommand;
@@ -233,6 +234,8 @@ EventHandlerResult FocusLEDCommand::onFocusEvent(const char *command) {
     subCommand = THEME;
   else if (strcmp_P(command + 4, PSTR("brightness")) == 0)
     subCommand = BRIGHTNESS;
+  else if (strcmp_P(command + 4, PSTR("brightnessUG")) == 0)
+    subCommand = BRIGHTNESSUG;
   else if (strcmp_P(command + 4, PSTR("setMultiple")) == 0)
     subCommand = SETMULTIPLE;
 else if (strcmp_P(command + 4, PSTR("getMultiple")) == 0)
@@ -267,6 +270,17 @@ else if (strcmp_P(command + 4, PSTR("getMultiple")) == 0)
 
       ::Focus.read(brightness);
       ::LEDControl.setBrightness(brightness);
+    }
+    break;
+  }
+  case BRIGHTNESSUG: {
+    if (::Focus.isEOL()) {
+      ::Focus.send(::LEDControl.getBrightnessUG());
+    } else {
+      uint8_t brightnessUG;
+
+      ::Focus.read(brightnessUG);
+      ::LEDControl.setBrightnessUG(brightnessUG);
     }
     break;
   }

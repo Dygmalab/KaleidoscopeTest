@@ -90,11 +90,19 @@ class RaiseSide {
     return 255 - brightness_adjustment_;
   }
 
+  void setBrightnessUG(uint8_t brightness) {
+    brightness_adjustment_ug_ = 255 - brightness;
+  }
+  uint8_t getBrightnessUG() {
+    return 255 - brightness_adjustment_ug_;
+  }
+
   LEDData_t led_data;
   bool online = false;
 
  private:
   uint8_t brightness_adjustment_ = 0;
+  uint8_t brightness_adjustment_ug_ = 0;
   int ad01_;
   TWI twi_;
   keydata_t key_data_;
